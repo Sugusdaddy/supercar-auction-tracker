@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supercar Auction Tracker - Dubai Flip Calculator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .gradient-bg { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); }
+    .card { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+    .profit-positive { color: #10b981; }
+    .profit-negative { color: #ef4444; }
+    .glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+    .brand-ferrari { background: linear-gradient(135deg, #dc2626, #991b1b); }
+    .brand-lamborghini { background: linear-gradient(135deg, #fbbf24, #d97706); }
+    .brand-mclaren { background: linear-gradient(135deg, #f97316, #ea580c); }
+    .brand-porsche { background: linear-gradient(135deg, #6b7280, #374151); }
+    .brand-bentley { background: linear-gradient(135deg, #059669, #047857); }
+    .brand-rolls-royce { background: linear-gradient(135deg, #4f46e5, #4338ca); }
+    .table-row:hover { background: rgba(59, 130, 246, 0.1); }
+    .loading { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  </style>
+</head>
+<body class="gradient-bg min-h-screen text-white">
+  <!-- Header -->
+  <header class="border-b border-white/10 px-6 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center text-xl">🏎️</div>
+        <div>
+          <h1 class="text-xl font-bold">Supercar Auction Tracker</h1>
+          <p class="text-xs text-gray-400">Dubai Flip Profit Calculator</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <span id="lastUpdate" class="text-sm text-gray-400">Loading...</span>
+        <button onclick="refreshData()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition">
+          Refresh
+        </button>
+        <button onclick="triggerScrape()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition">
+          Scrape Now
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+      <div class="card rounded-xl p-4">
+        <p class="text-gray-400 text-xs uppercase tracking-wide">Total Lots</p>
+        <p id="statTotal" class="text-2xl font-bold mt-1">-</p>
+      </div>
+      <div class="card rounded-xl p-4">
+        <p class="text-gray-400 text-xs uppercase tracking-wide">Live Auctions</p>
+        <p id="statLive" class="text-2xl font-bold mt-1 text-blue-400">-</p>
+      </div>
+      <div class="card rounded-xl p-4">
+        <p class="text-gray-400 text-xs uppercase tracking-wide">Profitable</p>
+        <p id="statProfitable" class="text-2xl font-bold mt-1 text-green-400">-</p>
+      </div>
+      <div class="card rounded-xl p-4">
+        <p class="text-gray-400 text-xs uppercase tracking-wide">Avg Profit</p>
+        <p id="statAvgProfit" class="text-2xl font-bold mt-1">-</p>
+      </div>
+      <div class="card rounded-xl p-4">
+        <p class="text-gray-400 text-xs uppercase tracking-wide">Max Profit</p>
+        <p id="statMaxProfit" class="text-2xl font-bold mt-1 text-yellow-400">-</p>
+      </div>
+      <div class="card rounded-xl p-4">
+        <p class="text-gray-400 text-xs uppercase tracking-wide">Avg ROI</p>
+        <p id="statAvgRoi" class="text-2xl font-bold mt-1">-</p>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card rounded-xl p-4 mb-8">
+      <div class="flex flex-wrap items-center gap-4">
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Brand</label>
+          <select id="filterBrand" onchange="applyFilters()" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm">
+            <option value="">All Brands</option>
+            <option value="Ferrari">Ferrari</option>
+            <option value="Lamborghini">Lamborghini</option>
+            <option value="McLaren">McLaren</option>
+            <option value="Porsche">Porsche</option>
+            <option value="Bentley">Bentley</option>
+            <option value="Rolls-Royce">Rolls-Royce</option>
+            <option value="Aston Martin">Aston Martin</option>
+            <option value="Mercedes-AMG">Mercedes-AMG</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Min Profit ($)</label>
+          <input id="filterMinProfit" type="number" placeholder="0" onchange="applyFilters()" 
+                 class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm w-28">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Sort By</label>
+          <select id="filterSort" onchange="applyFilters()" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm">
+            <option value="profit">Highest Profit</option>
+            <option value="roi">Highest ROI</option>
+            <option value="price">Lowest Price</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 block mb-1">Status</label>
+          <select id="filterStatus" onchange="applyFilters()" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm">
+            <option value="">All</option>
+            <option value="live">Live</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="sold">Sold</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid lg:grid-cols-3 gap-8">
+      <!-- Lots Table -->
+      <div class="lg:col-span-2">
+        <div class="card rounded-xl overflow-hidden">
+          <div class="p-4 border-b border-white/10">
+            <h2 class="font-semibold">Auction Lots</h2>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="text-xs text-gray-400 uppercase bg-white/5">
+                <tr>
+                  <th class="px-4 py-3 text-left">Vehicle</th>
+                  <th class="px-4 py-3 text-left">Source</th>
+                  <th class="px-4 py-3 text-right">Bid</th>
+                  <th class="px-4 py-3 text-right">Dubai Price</th>
+                  <th class="px-4 py-3 text-right">Profit</th>
+                  <th class="px-4 py-3 text-right">ROI</th>
+                  <th class="px-4 py-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="lotsTable">
+                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400 loading">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="space-y-6">
+        <!-- Top Opportunities -->
+        <div class="card rounded-xl p-4">
+          <h3 class="font-semibold mb-4 flex items-center gap-2">
+            <span class="text-yellow-400">⭐</span> Top Opportunities
+          </h3>
+          <div id="opportunities" class="space-y-3">
+            <p class="text-gray-400 text-sm loading">Loading...</p>
+          </div>
+        </div>
+
+        <!-- Brand Distribution -->
+        <div class="card rounded-xl p-4">
+          <h3 class="font-semibold mb-4">By Brand</h3>
+          <canvas id="brandChart" height="200"></canvas>
+        </div>
+
+        <!-- Recent Sold -->
+        <div class="card rounded-xl p-4">
+          <h3 class="font-semibold mb-4">Recently Sold (30d)</h3>
+          <div id="recentSold" class="space-y-2 max-h-64 overflow-y-auto">
+            <p class="text-gray-400 text-sm loading">Loading...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Detail Modal -->
+  <div id="modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 p-4">
+    <div class="card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6">
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <h2 id="modalTitle" class="text-xl font-bold">Loading...</h2>
+            <p id="modalSubtitle" class="text-gray-400"></p>
+          </div>
+          <button onclick="closeModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+        </div>
+        <div id="modalContent">
+          <p class="text-gray-400 loading">Loading details...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let brandChart = null;
+
+    // Format currency
+    const fmt = (n) => n ? '$' + n.toLocaleString() : '-';
+    const fmtPct = (n) => n ? n.toFixed(1) + '%' : '-';
+
+    // Brand colors
+    const brandColors = {
+      'Ferrari': '#dc2626',
+      'Lamborghini': '#fbbf24',
+      'McLaren': '#f97316',
+      'Porsche': '#6b7280',
+      'Bentley': '#059669',
+      'Rolls-Royce': '#4f46e5',
+      'Aston Martin': '#06b6d4',
+      'Mercedes-AMG': '#a855f7'
+    };
+
+    // Load stats
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+        
+        if (data.success) {
+          const s = data.data.overall;
+          document.getElementById('statTotal').textContent = s.totalLots;
+          document.getElementById('statLive').textContent = s.liveLots;
+          document.getElementById('statProfitable').textContent = s.profitableLots;
+          document.getElementById('statAvgProfit').textContent = fmt(s.avgProfit);
+          document.getElementById('statMaxProfit').textContent = fmt(s.maxProfit);
+          document.getElementById('statAvgRoi').textContent = fmtPct(s.avgRoi);
+
+          // Update chart
+          updateBrandChart(data.data.byBrand);
+
+          // Update last scrape time
+          if (data.data.recentScrapes.length > 0) {
+            const last = new Date(data.data.recentScrapes[0].created_at);
+            document.getElementById('lastUpdate').textContent = 'Last update: ' + last.toLocaleString();
+          }
+        }
+      } catch (err) {
+        console.error('Stats error:', err);
+      }
+    }
+
+    // Update brand chart
+    function updateBrandChart(brands) {
+      const ctx = document.getElementById('brandChart').getContext('2d');
+      
+      if (brandChart) brandChart.destroy();
+      
+      brandChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: brands.map(b => b.brand),
+          datasets: [{
+            data: brands.map(b => b.count),
+            backgroundColor: brands.map(b => brandColors[b.brand] || '#6b7280'),
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#9ca3af', font: { size: 11 } }
+            }
+          }
+        }
+      });
+    }
+
+    // Load lots
+    async function loadLots() {
+      const brand = document.getElementById('filterBrand').value;
+      const minProfit = document.getElementById('filterMinProfit').value;
+      const sortBy = document.getElementById('filterSort').value;
+      const status = document.getElementById('filterStatus').value;
+
+      const params = new URLSearchParams();
+      if (brand) params.set('brand', brand);
+      if (minProfit) params.set('minProfit', minProfit);
+      if (sortBy) params.set('sortBy', sortBy);
+      if (status) params.set('status', status);
+      params.set('limit', '50');
+
+      try {
+        const res = await fetch('/api/lots?' + params);
+        const data = await res.json();
+        
+        const tbody = document.getElementById('lotsTable');
+        
+        if (!data.success || data.data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">No lots found</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.data.map(lot => `
+          <tr class="table-row border-b border-white/5 cursor-pointer" onclick="showDetail(${lot.id})">
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-3">
+                ${lot.image_url ? `<img src="${lot.image_url}" class="w-12 h-12 object-cover rounded" onerror="this.style.display='none'">` : ''}
+                <div>
+                  <p class="font-medium">${lot.year || ''} ${lot.brand} ${lot.model}</p>
+                  <p class="text-xs text-gray-400">${lot.damage_type || 'Unknown'} • ${lot.mileage_miles?.toLocaleString() || '?'} mi</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-3">
+              <span class="text-xs px-2 py-1 rounded bg-white/10">${lot.source}</span>
+            </td>
+            <td class="px-4 py-3 text-right font-medium">${fmt(lot.current_bid_usd)}</td>
+            <td class="px-4 py-3 text-right text-gray-400">${fmt(lot.dubai_market_price_usd)}</td>
+            <td class="px-4 py-3 text-right font-bold ${lot.estimated_profit_usd > 0 ? 'profit-positive' : 'profit-negative'}">
+              ${fmt(lot.estimated_profit_usd)}
+            </td>
+            <td class="px-4 py-3 text-right ${lot.roi_percent > 20 ? 'text-green-400' : lot.roi_percent > 0 ? 'text-yellow-400' : 'text-red-400'}">
+              ${fmtPct(lot.roi_percent)}
+            </td>
+            <td class="px-4 py-3 text-center">
+              ${lot.detail_url ? `<a href="${lot.detail_url}" target="_blank" class="text-blue-400 hover:text-blue-300 text-sm" onclick="event.stopPropagation()">View</a>` : '-'}
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('Lots error:', err);
+      }
+    }
+
+    // Load opportunities
+    async function loadOpportunities() {
+      try {
+        const res = await fetch('/api/opportunities?minRoi=15&limit=5');
+        const data = await res.json();
+        
+        const container = document.getElementById('opportunities');
+        
+        if (!data.success || data.data.length === 0) {
+          container.innerHTML = '<p class="text-gray-400 text-sm">No high-ROI opportunities found</p>';
+          return;
+        }
+
+        container.innerHTML = data.data.map(lot => `
+          <div class="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer" onclick="showDetail(${lot.id})">
+            <div>
+              <p class="font-medium text-sm">${lot.year || ''} ${lot.brand} ${lot.model?.substring(0, 20)}</p>
+              <p class="text-xs text-gray-400">${lot.source} • ${fmt(lot.current_bid_usd)}</p>
+            </div>
+            <div class="text-right">
+              <p class="font-bold text-green-400">${fmt(lot.estimated_profit_usd)}</p>
+              <p class="text-xs text-yellow-400">${fmtPct(lot.roi_percent)} ROI</p>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Opportunities error:', err);
+      }
+    }
+
+    // Load sold history
+    async function loadSoldHistory() {
+      try {
+        const res = await fetch('/api/history?limit=10');
+        const data = await res.json();
+        
+        const container = document.getElementById('recentSold');
+        
+        if (!data.success || data.data.length === 0) {
+          container.innerHTML = '<p class="text-gray-400 text-sm">No recent sales data</p>';
+          return;
+        }
+
+        container.innerHTML = data.data.map(sold => `
+          <div class="flex items-center justify-between py-2 border-b border-white/5">
+            <div>
+              <p class="text-sm">${sold.year || ''} ${sold.brand} ${sold.model?.substring(0, 15)}</p>
+              <p class="text-xs text-gray-400">${sold.sale_date || 'Unknown date'}</p>
+            </div>
+            <p class="font-medium">${fmt(sold.final_bid_usd)}</p>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('History error:', err);
+      }
+    }
+
+    // Show lot detail
+    async function showDetail(id) {
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modal').classList.add('flex');
+      
+      try {
+        const res = await fetch(`/api/lots/${id}/breakdown`);
+        const data = await res.json();
+        
+        if (!data.success) {
+          document.getElementById('modalContent').innerHTML = '<p class="text-red-400">Error loading details</p>';
+          return;
+        }
+
+        const lot = data.data.lot;
+        const b = data.data.breakdown;
+
+        document.getElementById('modalTitle').textContent = `${lot.year || ''} ${lot.brand} ${lot.model}`;
+        document.getElementById('modalSubtitle').textContent = `Lot #${lot.lot_number} • ${lot.source}`;
+
+        document.getElementById('modalContent').innerHTML = `
+          <div class="grid md:grid-cols-2 gap-6">
+            <div>
+              ${lot.image_url ? `<img src="${lot.image_url}" class="w-full h-48 object-cover rounded-lg mb-4">` : ''}
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-gray-400">VIN:</span><span>${lot.vin || 'N/A'}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Damage:</span><span>${lot.damage_type || 'Unknown'}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Mileage:</span><span>${lot.mileage_miles?.toLocaleString() || '?'} mi</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Location:</span><span>${lot.location_state}, ${lot.location_country}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Sale Date:</span><span>${lot.sale_date || 'TBD'}</span></div>
+              </div>
+            </div>
+            <div>
+              <h4 class="font-semibold mb-3">Cost Breakdown</h4>
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-gray-400">Current Bid:</span><span>${fmt(b.bidPrice)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">+ Buyer Fees (22%):</span><span>${fmt(b.buyerFee)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">+ Transport to Port:</span><span>${fmt(b.inlandTransport)}</span></div>
+                <div class="flex justify-between border-t border-white/10 pt-2"><span class="text-gray-400">Auction Total:</span><span class="font-medium">${fmt(b.totalAuctionCost)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">+ Repair Estimate:</span><span>${fmt(b.repairCost)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">+ Shipping to Dubai:</span><span>${fmt(b.shippingCost)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">+ Insurance:</span><span>${fmt(b.insuranceCost)}</span></div>
+                <div class="flex justify-between border-t border-white/10 pt-2"><span class="text-gray-400">CIF Value:</span><span class="font-medium">${fmt(b.cifValue)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">+ Customs (5%):</span><span>${fmt(b.customsDuty)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">+ VAT (5%):</span><span>${fmt(b.vat)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">+ RTA/Insurance/Ads:</span><span>${fmt(b.dubaiFixedCosts)}</span></div>
+                <div class="flex justify-between border-t border-white/10 pt-2 text-base"><span class="font-medium">TOTAL COST:</span><span class="font-bold">${fmt(b.totalCost)}</span></div>
+              </div>
+              
+              <div class="mt-6 p-4 rounded-lg ${b.profit > 0 ? 'bg-green-500/20' : 'bg-red-500/20'}">
+                <div class="flex justify-between items-center">
+                  <div>
+                    <p class="text-gray-400 text-xs">Dubai Market Price</p>
+                    <p class="text-lg font-bold">${fmt(b.dubaiMarketPrice)}</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-gray-400 text-xs">Estimated Profit</p>
+                    <p class="text-2xl font-bold ${b.profit > 0 ? 'text-green-400' : 'text-red-400'}">${fmt(b.profit)}</p>
+                    <p class="text-sm ${b.roi > 0 ? 'text-green-400' : 'text-red-400'}">${fmtPct(b.roi)} ROI</p>
+                  </div>
+                </div>
+              </div>
+              
+              ${lot.detail_url ? `<a href="${lot.detail_url}" target="_blank" class="mt-4 block w-full py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-center font-medium transition">View on ${lot.source}</a>` : ''}
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        console.error('Detail error:', err);
+        document.getElementById('modalContent').innerHTML = '<p class="text-red-400">Error loading details</p>';
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('modal').classList.remove('flex');
+    }
+
+    // Trigger scrape
+    async function triggerScrape() {
+      if (!confirm('Start scraping all auction sites? This may take several minutes.')) return;
+      
+      try {
+        const res = await fetch('/api/scrape', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || 'Scrape started!');
+      } catch (err) {
+        alert('Error starting scrape: ' + err.message);
+      }
+    }
+
+    // Apply filters
+    function applyFilters() {
+      loadLots();
+    }
+
+    // Refresh all data
+    function refreshData() {
+      loadStats();
+      loadLots();
+      loadOpportunities();
+      loadSoldHistory();
+    }
+
+    // Close modal on click outside
+    document.getElementById('modal').addEventListener('click', (e) => {
+      if (e.target.id === 'modal') closeModal();
+    });
+
+    // Initial load
+    refreshData();
+
+    // Auto-refresh every 5 minutes
+    setInterval(refreshData, 300000);
+  </script>
+</body>
+</html>
