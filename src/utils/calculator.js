@@ -14,24 +14,72 @@ const SHIPPING_COSTS = {
   'default': 2500
 };
 
-// Repair estimates by damage type (USD)
+// Repair estimates by damage type (USD) - SUPERCAR SPECIFIC
 const REPAIR_ESTIMATES = {
+  // Low risk
   'clean': 0,
-  'normal wear': 500,
-  'minor dents/scratches': 1500,
-  'front end': 8000,
-  'rear end': 6000,
-  'side': 5000,
-  'undercarriage': 4000,
-  'hail': 3000,
-  'flood': 15000,
-  'vandalism': 3000,
-  'mechanical': 7000,
-  'burn': 25000,
-  'rollover': 20000,
-  'biohazard': 8000,
-  'all over': 18000,
-  'default': 5000
+  'normal wear': 7500,
+  'minor dent': 7500,
+  'scratches': 7500,
+  'minor dents/scratches': 7500,
+  
+  // Medium risk
+  'front end': 30000,
+  'front': 30000,
+  'rear end': 20000,
+  'rear': 20000,
+  'side': 18000,
+  'left side': 18000,
+  'right side': 18000,
+  'left front': 25000,
+  'right front': 25000,
+  'left rear': 18000,
+  'right rear': 18000,
+  'theft recovery': 10000,
+  'theft': 10000,
+  'recovered theft': 10000,
+  'undercarriage': 18000,
+  'mechanical': 15000,
+  'hail': 8000,
+  'vandalism': 10000,
+  
+  // HIGH RISK - FLAG AS AVOID
+  'all over': 999999,
+  'flood': 999999,
+  'burn': 999999,
+  'fire': 999999,
+  'water': 999999,
+  'biohazard': 999999,
+  'rollover': 999999,
+  
+  // Unknown
+  'unknown': 25000,
+  'default': 25000
+};
+
+// Damage risk categories
+const DAMAGE_RISK = {
+  'clean': 'low',
+  'normal wear': 'low',
+  'minor dent': 'low',
+  'scratches': 'low',
+  'hail': 'low',
+  'front end': 'medium',
+  'front': 'medium',
+  'rear end': 'medium',
+  'rear': 'medium',
+  'side': 'medium',
+  'theft recovery': 'medium',
+  'undercarriage': 'medium',
+  'mechanical': 'medium',
+  'all over': 'avoid',
+  'flood': 'avoid',
+  'burn': 'avoid',
+  'fire': 'avoid',
+  'water': 'avoid',
+  'biohazard': 'avoid',
+  'rollover': 'avoid',
+  'default': 'medium'
 };
 
 // Auction platform fees (percentage of hammer price)
@@ -57,6 +105,9 @@ const UAE_IMPORT = {
   ADS_LISTING: 200
 };
 
+// AED conversion
+const USD_TO_AED = 3.67;
+
 function getShippingCost(country) {
   if (!country) return SHIPPING_COSTS['default'];
   const normalized = country.toUpperCase().trim();
@@ -79,6 +130,17 @@ function getRepairEstimate(damageType) {
   return REPAIR_ESTIMATES['default'];
 }
 
+function getDamageRisk(damageType) {
+  if (!damageType) return 'medium';
+  const normalized = damageType.toLowerCase().trim();
+  for (const [key, value] of Object.entries(DAMAGE_RISK)) {
+    if (normalized.includes(key)) {
+      return value;
+    }
+  }
+  return 'medium';
+}
+
 function getPlatformFee(platform) {
   if (!platform) return PLATFORM_FEES['default'];
   const normalized = platform.toLowerCase().trim();
@@ -86,56 +148,83 @@ function getPlatformFee(platform) {
 }
 
 /**
+ * Estimate final bid based on current bid and days to sale
+ */
+function estimateFinalBid(currentBid, saleDate, status) {
+  if (status === 'sold') return currentBid; // Already final
+  
+  if (!saleDate) {
+    // Unknown date, assume 7+ days
+    return currentBid * 1.6;
+  }
+
+  const now = new Date();
+  const sale = new Date(saleDate);
+  const daysToSale = Math.ceil((sale - now) / (1000 * 60 * 60 * 24));
+
+  if (daysToSale > 7) {
+    return Math.round(currentBid * 1.6);
+  } else if (daysToSale >= 3) {
+    return Math.round(currentBid * 1.8);
+  } else {
+    return Math.round(currentBid * 2.0);
+  }
+}
+
+/**
  * Calculate full profit potential for Dubai resale
- * @param {Object} lot - Auction lot data
- * @param {number} dubaiMarketPrice - Expected sell price in Dubai (USD)
- * @returns {Object} - Calculated costs and profit
  */
 function calculateProfit(lot, dubaiMarketPrice) {
-  const bidPrice = lot.estimated_final_usd || lot.current_bid_usd || 0;
+  const currentBid = lot.current_bid_usd || 0;
+  const estimatedFinal = lot.estimated_final_usd || estimateFinalBid(currentBid, lot.sale_date, lot.status);
   const platform = lot.platform || lot.source || 'default';
   const country = lot.location_country || 'USA';
-  const damageType = lot.damage_type || 'default';
+  const damageType = lot.damage_type || 'unknown';
+
+  // Get repair estimate
+  const repairCost = lot.repair_estimate_usd || getRepairEstimate(damageType);
+  
+  // Check if should avoid
+  const isAvoid = repairCost >= 999999;
+  const actualRepairCost = isAvoid ? 80000 : repairCost;
 
   // 1. Auction costs
   const platformFeeRate = getPlatformFee(platform);
-  const buyerFee = bidPrice * platformFeeRate;
-  const inlandTransport = 800; // Transport to port in USA
-  const totalAuctionCost = bidPrice + buyerFee + inlandTransport;
+  const buyerFee = estimatedFinal * platformFeeRate;
+  const inlandTransport = 800;
+  const totalAuctionCost = estimatedFinal + buyerFee + inlandTransport;
 
-  // 2. Repair estimate
-  const repairCost = lot.repair_estimate_usd || getRepairEstimate(damageType);
-
-  // 3. Shipping to Dubai
+  // 2. Shipping to Dubai
   const shippingCost = lot.ship_to_dubai_usd || getShippingCost(country);
 
-  // 4. Marine insurance
+  // 3. Marine insurance
   const insuranceCost = totalAuctionCost * UAE_IMPORT.INSURANCE_RATE;
 
-  // 5. CIF (Cost, Insurance, Freight) value
-  const cifValue = totalAuctionCost + repairCost + shippingCost + insuranceCost;
+  // 4. CIF value
+  const cifValue = totalAuctionCost + actualRepairCost + shippingCost + insuranceCost;
 
-  // 6. UAE Import taxes
+  // 5. UAE Import taxes
   const customsDuty = cifValue * UAE_IMPORT.DUTY_RATE;
   const vat = (cifValue + customsDuty) * UAE_IMPORT.VAT_RATE;
   const totalImportTax = customsDuty + vat;
 
-  // 7. Dubai fixed costs
+  // 6. Dubai fixed costs
   const dubaiFixedCosts = UAE_IMPORT.RTA_REGISTRATION + UAE_IMPORT.LOCAL_INSURANCE + UAE_IMPORT.ADS_LISTING;
 
-  // 8. Total investment
+  // 7. Total investment
   const totalCost = cifValue + totalImportTax + dubaiFixedCosts;
 
-  // 9. Profit calculation
+  // 8. Profit calculation
   const profit = dubaiMarketPrice - totalCost;
   const roi = totalCost > 0 ? (profit / totalCost) * 100 : 0;
 
   return {
-    bidPrice,
+    currentBid,
+    estimatedFinal,
     buyerFee: Math.round(buyerFee),
     inlandTransport,
     totalAuctionCost: Math.round(totalAuctionCost),
-    repairCost,
+    repairCost: actualRepairCost,
     shippingCost,
     insuranceCost: Math.round(insuranceCost),
     cifValue: Math.round(cifValue),
@@ -146,7 +235,10 @@ function calculateProfit(lot, dubaiMarketPrice) {
     totalCost: Math.round(totalCost),
     dubaiMarketPrice,
     profit: Math.round(profit),
-    roi: Math.round(roi * 10) / 10
+    profitAED: Math.round(profit * USD_TO_AED),
+    roi: Math.round(roi * 10) / 10,
+    isAvoid,
+    damageRisk: getDamageRisk(damageType)
   };
 }
 
@@ -202,6 +294,13 @@ function sleep(ms) {
 }
 
 /**
+ * Random delay between min and max ms
+ */
+function randomDelay(min = 2000, max = 5000) {
+  return sleep(Math.floor(Math.random() * (max - min + 1)) + min);
+}
+
+/**
  * Retry helper
  */
 async function retry(fn, retries = 3, delay = 1000) {
@@ -216,18 +315,38 @@ async function retry(fn, retries = 3, delay = 1000) {
   }
 }
 
+/**
+ * Random user agent
+ */
+function getRandomUserAgent() {
+  const agents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
+  ];
+  return agents[Math.floor(Math.random() * agents.length)];
+}
+
 module.exports = {
   SHIPPING_COSTS,
   REPAIR_ESTIMATES,
+  DAMAGE_RISK,
   PLATFORM_FEES,
   UAE_IMPORT,
+  USD_TO_AED,
   getShippingCost,
   getRepairEstimate,
+  getDamageRisk,
   getPlatformFee,
+  estimateFinalBid,
   calculateProfit,
   parsePrice,
   parseMileage,
   normalizeBrand,
   sleep,
-  retry
+  randomDelay,
+  retry,
+  getRandomUserAgent
 };

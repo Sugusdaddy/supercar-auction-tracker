@@ -3,216 +3,324 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Supercar Auction Tracker - Dubai Flip Calculator</title>
+  <title>SupercarFlip - Global Auction Intelligence</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    .gradient-bg { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); }
-    .card { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-    .profit-positive { color: #10b981; }
+    * { font-family: system-ui, -apple-system, sans-serif; }
+    body { background: #0f0f0f; color: #fff; }
+    .card { background: #1a1a1a; border: 1px solid #2a2a2a; }
+    .card:hover { border-color: #3a3a3a; }
+    
+    /* Brand colors */
+    .brand-Ferrari { --brand: #e8002d; }
+    .brand-Lamborghini { --brand: #f0c040; }
+    .brand-McLaren { --brand: #ff6600; }
+    .brand-Porsche { --brand: #c8a84b; }
+    .brand-Bentley { --brand: #116530; }
+    .brand-Rolls-Royce { --brand: #5a189a; }
+    .brand-Mercedes-AMG { --brand: #00a1c9; }
+    .brand-Aston { --brand: #006747; }
+    
+    .brand-glow:hover { box-shadow: 0 0 20px var(--brand, #3b82f6); border-color: var(--brand, #3b82f6); }
+    
+    /* Badges */
+    .badge-copart { background: #2563eb; }
+    .badge-iaai { background: #ea580c; }
+    .badge-emirates { background: #16a34a; }
+    .badge-carfast { background: #8b5cf6; }
+    .badge-bidcars { background: #0891b2; }
+    .badge-japan { background: #dc2626; }
+    
+    .badge-live { background: #dc2626; animation: pulse-live 2s infinite; }
+    .badge-upcoming { background: #eab308; }
+    .badge-future { background: #3b82f6; }
+    .badge-sold { background: #22c55e; }
+    
+    .risk-low { background: #22c55e33; color: #22c55e; }
+    .risk-medium { background: #eab30833; color: #eab308; }
+    .risk-avoid { background: #ef444433; color: #ef4444; }
+    
+    @keyframes pulse-live { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    
+    .profit-positive { color: #22c55e; }
     .profit-negative { color: #ef4444; }
-    .glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
-    .brand-ferrari { background: linear-gradient(135deg, #dc2626, #991b1b); }
-    .brand-lamborghini { background: linear-gradient(135deg, #fbbf24, #d97706); }
-    .brand-mclaren { background: linear-gradient(135deg, #f97316, #ea580c); }
-    .brand-porsche { background: linear-gradient(135deg, #6b7280, #374151); }
-    .brand-bentley { background: linear-gradient(135deg, #059669, #047857); }
-    .brand-rolls-royce { background: linear-gradient(135deg, #4f46e5, #4338ca); }
-    .table-row:hover { background: rgba(59, 130, 246, 0.1); }
+    
+    .countdown-urgent { color: #ef4444; font-weight: bold; }
+    
     .loading { animation: pulse 2s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    
+    .sticky-filters { position: sticky; top: 0; z-index: 40; background: #0f0f0f; }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #1a1a1a; }
+    ::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
+
+    /* Sidebar */
+    .sidebar { transition: transform 0.3s ease; }
+    .sidebar.hidden { transform: translateX(100%); }
   </style>
 </head>
-<body class="gradient-bg min-h-screen text-white">
+<body class="min-h-screen">
   <!-- Header -->
-  <header class="border-b border-white/10 px-6 py-4">
-    <div class="max-w-7xl mx-auto flex items-center justify-between">
+  <header class="border-b border-[#2a2a2a] px-4 md:px-6 py-4">
+    <div class="max-w-[1800px] mx-auto flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center text-xl">🏎️</div>
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-xl">🏎️</div>
         <div>
-          <h1 class="text-xl font-bold">Supercar Auction Tracker</h1>
-          <p class="text-xs text-gray-400">Dubai Flip Profit Calculator</p>
+          <h1 class="text-xl font-bold">SupercarFlip</h1>
+          <p class="text-xs text-gray-500">Global Auction Intelligence</p>
         </div>
       </div>
-      <div class="flex items-center gap-4">
-        <span id="lastUpdate" class="text-sm text-gray-400">Loading...</span>
-        <button onclick="refreshData()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition">
+      <div class="flex items-center gap-2 md:gap-4 flex-wrap">
+        <div class="text-sm">
+          <span class="text-gray-500">Active:</span>
+          <span id="headerTotal" class="font-bold text-white">-</span>
+          <span class="text-gray-500 mx-2">|</span>
+          <span class="text-gray-500">Est. Pool:</span>
+          <span id="headerPool" class="font-bold text-green-400">-</span>
+        </div>
+        <span id="lastUpdate" class="text-xs text-gray-500 hidden md:inline">-</span>
+        <button onclick="refreshData()" class="px-3 py-1.5 bg-[#2a2a2a] hover:bg-[#3a3a3a] rounded text-sm transition">
           Refresh
         </button>
-        <button onclick="triggerScrape()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition">
+        <button onclick="triggerScrape()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition">
           Scrape Now
+        </button>
+        <button onclick="toggleWatchlist()" class="px-3 py-1.5 bg-[#2a2a2a] hover:bg-[#3a3a3a] rounded text-sm transition flex items-center gap-1">
+          ⭐ <span id="watchlistCount">0</span>
         </button>
       </div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-6 py-8">
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-      <div class="card rounded-xl p-4">
-        <p class="text-gray-400 text-xs uppercase tracking-wide">Total Lots</p>
-        <p id="statTotal" class="text-2xl font-bold mt-1">-</p>
+  <!-- Stats Cards -->
+  <div class="max-w-[1800px] mx-auto px-4 md:px-6 py-4">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div class="card rounded-lg p-3">
+        <p class="text-gray-500 text-xs uppercase tracking-wide">Total Lots</p>
+        <p id="statTotal" class="text-xl md:text-2xl font-bold mt-1">-</p>
       </div>
-      <div class="card rounded-xl p-4">
-        <p class="text-gray-400 text-xs uppercase tracking-wide">Live Auctions</p>
-        <p id="statLive" class="text-2xl font-bold mt-1 text-blue-400">-</p>
+      <div class="card rounded-lg p-3">
+        <p class="text-gray-500 text-xs uppercase tracking-wide">Avg Profit</p>
+        <p id="statAvgProfit" class="text-xl md:text-2xl font-bold mt-1">-</p>
+        <p id="statAvgProfitAED" class="text-xs text-gray-500">-</p>
       </div>
-      <div class="card rounded-xl p-4">
-        <p class="text-gray-400 text-xs uppercase tracking-wide">Profitable</p>
-        <p id="statProfitable" class="text-2xl font-bold mt-1 text-green-400">-</p>
+      <div class="card rounded-lg p-3">
+        <p class="text-gray-500 text-xs uppercase tracking-wide">Best Profit</p>
+        <p id="statMaxProfit" class="text-xl md:text-2xl font-bold mt-1 text-green-400">-</p>
+        <p id="statMaxProfitAED" class="text-xs text-gray-500">-</p>
       </div>
-      <div class="card rounded-xl p-4">
-        <p class="text-gray-400 text-xs uppercase tracking-wide">Avg Profit</p>
-        <p id="statAvgProfit" class="text-2xl font-bold mt-1">-</p>
+      <div class="card rounded-lg p-3">
+        <p class="text-gray-500 text-xs uppercase tracking-wide">Total Pool</p>
+        <p id="statTotalPool" class="text-xl md:text-2xl font-bold mt-1 text-yellow-400">-</p>
+        <p id="statTotalPoolAED" class="text-xs text-gray-500">-</p>
       </div>
-      <div class="card rounded-xl p-4">
-        <p class="text-gray-400 text-xs uppercase tracking-wide">Max Profit</p>
-        <p id="statMaxProfit" class="text-2xl font-bold mt-1 text-yellow-400">-</p>
+      <div class="card rounded-lg p-3">
+        <p class="text-gray-500 text-xs uppercase tracking-wide">Profitable</p>
+        <p id="statProfitable" class="text-xl md:text-2xl font-bold mt-1">-</p>
       </div>
-      <div class="card rounded-xl p-4">
-        <p class="text-gray-400 text-xs uppercase tracking-wide">Avg ROI</p>
-        <p id="statAvgRoi" class="text-2xl font-bold mt-1">-</p>
+      <div class="card rounded-lg p-3 border-red-500/30">
+        <p class="text-gray-500 text-xs uppercase tracking-wide">Ending 48h</p>
+        <p id="statUrgent" class="text-xl md:text-2xl font-bold mt-1 text-red-400">-</p>
       </div>
     </div>
+  </div>
 
-    <!-- Filters -->
-    <div class="card rounded-xl p-4 mb-8">
-      <div class="flex flex-wrap items-center gap-4">
-        <div>
-          <label class="text-xs text-gray-400 block mb-1">Brand</label>
-          <select id="filterBrand" onchange="applyFilters()" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm">
+  <!-- Filters -->
+  <div class="sticky-filters border-b border-[#2a2a2a] px-4 md:px-6 py-3">
+    <div class="max-w-[1800px] mx-auto flex flex-wrap items-center gap-3">
+      <select id="filterBrand" onchange="applyFilters()" class="bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-sm">
+        <option value="">All Brands</option>
+        <option value="Ferrari">Ferrari</option>
+        <option value="Lamborghini">Lamborghini</option>
+        <option value="McLaren">McLaren</option>
+        <option value="Porsche">Porsche</option>
+        <option value="Bentley">Bentley</option>
+        <option value="Rolls-Royce">Rolls-Royce</option>
+        <option value="Mercedes-AMG">Mercedes-AMG</option>
+        <option value="Aston Martin">Aston Martin</option>
+      </select>
+      <select id="filterSource" onchange="applyFilters()" class="bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-sm">
+        <option value="">All Sources</option>
+        <option value="copart">Copart</option>
+        <option value="iaai">IAAI</option>
+        <option value="carfast">CarFast</option>
+        <option value="bidcars">BidCars</option>
+        <option value="emirates">Emirates</option>
+        <option value="carsfromwest">CarsFromWest</option>
+      </select>
+      <select id="filterStatus" onchange="applyFilters()" class="bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-sm">
+        <option value="">All Status</option>
+        <option value="live">Live Now</option>
+        <option value="week">This Week</option>
+        <option value="future">Future</option>
+        <option value="sold">Sold (History)</option>
+      </select>
+      <select id="filterDamage" onchange="applyFilters()" class="bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-sm">
+        <option value="">All Damage</option>
+        <option value="low">Low Risk</option>
+        <option value="medium">Low + Medium</option>
+        <option value="avoid">Avoid Only</option>
+      </select>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-gray-500">Min Profit:</span>
+        <input id="filterMinProfit" type="range" min="0" max="200000" step="5000" value="0" 
+               oninput="updateMinProfitLabel()" onchange="applyFilters()" class="w-24">
+        <span id="minProfitLabel" class="text-xs w-16">$0</span>
+      </div>
+      <select id="filterSort" onchange="applyFilters()" class="bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-sm">
+        <option value="profit">Best Profit</option>
+        <option value="roi">Best ROI</option>
+        <option value="price">Lowest Bid</option>
+        <option value="soonest">Soonest Auction</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="max-w-[1800px] mx-auto px-4 md:px-6 py-6">
+    <!-- Lot Cards Grid -->
+    <div id="lotsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div class="card rounded-xl p-8 text-center text-gray-400 loading col-span-full">Loading auction lots...</div>
+    </div>
+
+    <!-- History & Analytics Section -->
+    <div class="mt-12 grid lg:grid-cols-2 gap-6">
+      <!-- Sold History -->
+      <div class="card rounded-xl p-4">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold">Sold Last 30 Days</h3>
+          <select id="historyBrandFilter" onchange="loadHistory()" class="bg-[#0f0f0f] border border-[#2a2a2a] rounded px-2 py-1 text-xs">
             <option value="">All Brands</option>
             <option value="Ferrari">Ferrari</option>
             <option value="Lamborghini">Lamborghini</option>
             <option value="McLaren">McLaren</option>
             <option value="Porsche">Porsche</option>
-            <option value="Bentley">Bentley</option>
-            <option value="Rolls-Royce">Rolls-Royce</option>
-            <option value="Aston Martin">Aston Martin</option>
-            <option value="Mercedes-AMG">Mercedes-AMG</option>
           </select>
         </div>
-        <div>
-          <label class="text-xs text-gray-400 block mb-1">Min Profit ($)</label>
-          <input id="filterMinProfit" type="number" placeholder="0" onchange="applyFilters()" 
-                 class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm w-28">
-        </div>
-        <div>
-          <label class="text-xs text-gray-400 block mb-1">Sort By</label>
-          <select id="filterSort" onchange="applyFilters()" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm">
-            <option value="profit">Highest Profit</option>
-            <option value="roi">Highest ROI</option>
-            <option value="price">Lowest Price</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-xs text-gray-400 block mb-1">Status</label>
-          <select id="filterStatus" onchange="applyFilters()" class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm">
-            <option value="">All</option>
-            <option value="live">Live</option>
-            <option value="upcoming">Upcoming</option>
-            <option value="sold">Sold</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- Main Content Grid -->
-    <div class="grid lg:grid-cols-3 gap-8">
-      <!-- Lots Table -->
-      <div class="lg:col-span-2">
-        <div class="card rounded-xl overflow-hidden">
-          <div class="p-4 border-b border-white/10">
-            <h2 class="font-semibold">Auction Lots</h2>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead class="text-xs text-gray-400 uppercase bg-white/5">
-                <tr>
-                  <th class="px-4 py-3 text-left">Vehicle</th>
-                  <th class="px-4 py-3 text-left">Source</th>
-                  <th class="px-4 py-3 text-right">Bid</th>
-                  <th class="px-4 py-3 text-right">Dubai Price</th>
-                  <th class="px-4 py-3 text-right">Profit</th>
-                  <th class="px-4 py-3 text-right">ROI</th>
-                  <th class="px-4 py-3 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody id="lotsTable">
-                <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400 loading">Loading...</td></tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-xs text-gray-500 uppercase">
+              <tr>
+                <th class="text-left py-2">Model</th>
+                <th class="text-left py-2">Yr</th>
+                <th class="text-left py-2">Damage</th>
+                <th class="text-right py-2">Final</th>
+                <th class="text-right py-2">Profit</th>
+              </tr>
+            </thead>
+            <tbody id="historyTable">
+              <tr><td colspan="5" class="py-4 text-center text-gray-500 loading">Loading...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- Sidebar -->
-      <div class="space-y-6">
-        <!-- Top Opportunities -->
-        <div class="card rounded-xl p-4">
-          <h3 class="font-semibold mb-4 flex items-center gap-2">
-            <span class="text-yellow-400">⭐</span> Top Opportunities
-          </h3>
-          <div id="opportunities" class="space-y-3">
-            <p class="text-gray-400 text-sm loading">Loading...</p>
-          </div>
-        </div>
-
-        <!-- Brand Distribution -->
-        <div class="card rounded-xl p-4">
-          <h3 class="font-semibold mb-4">By Brand</h3>
-          <canvas id="brandChart" height="200"></canvas>
-        </div>
-
-        <!-- Recent Sold -->
-        <div class="card rounded-xl p-4">
-          <h3 class="font-semibold mb-4">Recently Sold (30d)</h3>
-          <div id="recentSold" class="space-y-2 max-h-64 overflow-y-auto">
-            <p class="text-gray-400 text-sm loading">Loading...</p>
-          </div>
-        </div>
+      <!-- Price Chart -->
+      <div class="card rounded-xl p-4">
+        <h3 class="font-semibold mb-4">Avg Final Price by Brand (30d)</h3>
+        <canvas id="priceChart" height="200"></canvas>
       </div>
-    </div>
-  </main>
 
-  <!-- Detail Modal -->
-  <div id="modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 p-4">
-    <div class="card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-      <div class="p-6">
-        <div class="flex items-start justify-between mb-6">
-          <div>
-            <h2 id="modalTitle" class="text-xl font-bold">Loading...</h2>
-            <p id="modalSubtitle" class="text-gray-400"></p>
-          </div>
-          <button onclick="closeModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
-        </div>
-        <div id="modalContent">
-          <p class="text-gray-400 loading">Loading details...</p>
+      <!-- Profit by Brand -->
+      <div class="card rounded-xl p-4">
+        <h3 class="font-semibold mb-4">Avg Profit by Brand</h3>
+        <canvas id="profitBrandChart" height="200"></canvas>
+      </div>
+
+      <!-- Best of Month -->
+      <div class="card rounded-xl p-4">
+        <h3 class="font-semibold mb-4">🏆 Top 10 This Month</h3>
+        <div id="bestMonth" class="space-y-2 max-h-64 overflow-y-auto">
+          <p class="text-gray-500 text-sm loading">Loading...</p>
         </div>
       </div>
     </div>
   </div>
 
-  <script>
-    let brandChart = null;
+  <!-- Watchlist Sidebar -->
+  <div id="watchlistSidebar" class="sidebar hidden fixed right-0 top-0 h-full w-80 bg-[#1a1a1a] border-l border-[#2a2a2a] z-50 overflow-y-auto">
+    <div class="p-4 border-b border-[#2a2a2a] flex items-center justify-between">
+      <h3 class="font-semibold">⭐ Watchlist</h3>
+      <button onclick="toggleWatchlist()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+    </div>
+    <div class="p-4">
+      <div class="mb-4 p-3 bg-[#0f0f0f] rounded-lg">
+        <p class="text-xs text-gray-500">Total Est. Profit</p>
+        <p id="watchlistTotalProfit" class="text-xl font-bold text-green-400">$0</p>
+      </div>
+      <div id="watchlistItems" class="space-y-3">
+        <p class="text-gray-500 text-sm">No items in watchlist</p>
+      </div>
+    </div>
+  </div>
 
-    // Format currency
+  <!-- Detail Modal -->
+  <div id="modal" class="fixed inset-0 bg-black/90 hidden items-center justify-center z-50 p-4">
+    <div class="card rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6" id="modalContent">
+        <p class="text-gray-400 loading">Loading...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Charts
+    let profitBrandChart = null;
+    let priceChart = null;
+
+    // State
+    let watchlist = JSON.parse(localStorage.getItem('watchlist') || '[]');
+
+    // Formatters
     const fmt = (n) => n ? '$' + n.toLocaleString() : '-';
+    const fmtAED = (n) => n ? 'AED ' + n.toLocaleString() : '-';
     const fmtPct = (n) => n ? n.toFixed(1) + '%' : '-';
 
     // Brand colors
     const brandColors = {
-      'Ferrari': '#dc2626',
-      'Lamborghini': '#fbbf24',
-      'McLaren': '#f97316',
-      'Porsche': '#6b7280',
-      'Bentley': '#059669',
-      'Rolls-Royce': '#4f46e5',
-      'Aston Martin': '#06b6d4',
-      'Mercedes-AMG': '#a855f7'
+      'Ferrari': '#e8002d',
+      'Lamborghini': '#f0c040',
+      'McLaren': '#ff6600',
+      'Porsche': '#c8a84b',
+      'Bentley': '#116530',
+      'Rolls-Royce': '#5a189a',
+      'Aston Martin': '#006747',
+      'Mercedes-AMG': '#00a1c9'
     };
+
+    // Calculate countdown
+    function getCountdown(timestamp) {
+      if (!timestamp) return { text: 'TBD', urgent: false };
+      const now = Math.floor(Date.now() / 1000);
+      const diff = timestamp - now;
+      
+      if (diff < 0) return { text: 'Ended', urgent: false };
+      
+      const days = Math.floor(diff / 86400);
+      const hours = Math.floor((diff % 86400) / 3600);
+      const mins = Math.floor((diff % 3600) / 60);
+      
+      const urgent = diff < 86400;
+      
+      if (days > 0) {
+        return { text: `${days}d ${hours}h`, urgent };
+      } else if (hours > 0) {
+        return { text: `${hours}h ${mins}m`, urgent };
+      } else {
+        return { text: `${mins}m`, urgent: true };
+      }
+    }
+
+    // Update min profit label
+    function updateMinProfitLabel() {
+      const val = document.getElementById('filterMinProfit').value;
+      document.getElementById('minProfitLabel').textContent = fmt(parseInt(val));
+    }
 
     // Load stats
     async function loadStats() {
@@ -223,49 +331,52 @@
         if (data.success) {
           const s = data.data.overall;
           document.getElementById('statTotal').textContent = s.totalLots;
-          document.getElementById('statLive').textContent = s.liveLots;
-          document.getElementById('statProfitable').textContent = s.profitableLots;
           document.getElementById('statAvgProfit').textContent = fmt(s.avgProfit);
+          document.getElementById('statAvgProfitAED').textContent = fmtAED(s.avgProfitAED);
           document.getElementById('statMaxProfit').textContent = fmt(s.maxProfit);
-          document.getElementById('statAvgRoi').textContent = fmtPct(s.avgRoi);
+          document.getElementById('statMaxProfitAED').textContent = fmtAED(s.maxProfitAED);
+          document.getElementById('statTotalPool').textContent = fmt(s.totalProfitPool);
+          document.getElementById('statTotalPoolAED').textContent = fmtAED(s.totalProfitPoolAED);
+          document.getElementById('statProfitable').textContent = s.profitableLots;
+          document.getElementById('statUrgent').textContent = s.urgent48h;
+          
+          document.getElementById('headerTotal').textContent = s.liveLots;
+          document.getElementById('headerPool').textContent = fmt(s.totalProfitPool);
 
-          // Update chart
-          updateBrandChart(data.data.byBrand);
-
-          // Update last scrape time
           if (data.data.recentScrapes.length > 0) {
             const last = new Date(data.data.recentScrapes[0].created_at);
-            document.getElementById('lastUpdate').textContent = 'Last update: ' + last.toLocaleString();
+            document.getElementById('lastUpdate').textContent = 'Updated: ' + last.toLocaleString();
           }
+
+          // Update charts
+          updateProfitBrandChart(data.data.byBrand);
         }
       } catch (err) {
         console.error('Stats error:', err);
       }
     }
 
-    // Update brand chart
-    function updateBrandChart(brands) {
-      const ctx = document.getElementById('brandChart').getContext('2d');
+    // Update profit by brand chart
+    function updateProfitBrandChart(brands) {
+      const ctx = document.getElementById('profitBrandChart').getContext('2d');
+      if (profitBrandChart) profitBrandChart.destroy();
       
-      if (brandChart) brandChart.destroy();
-      
-      brandChart = new Chart(ctx, {
-        type: 'doughnut',
+      profitBrandChart = new Chart(ctx, {
+        type: 'bar',
         data: {
           labels: brands.map(b => b.brand),
           datasets: [{
-            data: brands.map(b => b.count),
-            backgroundColor: brands.map(b => brandColors[b.brand] || '#6b7280'),
-            borderWidth: 0
+            label: 'Avg Profit ($)',
+            data: brands.map(b => Math.round(b.avg_profit || 0)),
+            backgroundColor: brands.map(b => brandColors[b.brand] || '#6b7280')
           }]
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: { color: '#9ca3af', font: { size: 11 } }
-            }
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { grid: { color: '#2a2a2a' }, ticks: { color: '#9ca3af' } },
+            x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
           }
         }
       });
@@ -274,187 +385,247 @@
     // Load lots
     async function loadLots() {
       const brand = document.getElementById('filterBrand').value;
-      const minProfit = document.getElementById('filterMinProfit').value;
-      const sortBy = document.getElementById('filterSort').value;
+      const source = document.getElementById('filterSource').value;
       const status = document.getElementById('filterStatus').value;
+      const damage_risk = document.getElementById('filterDamage').value;
+      const min_profit = document.getElementById('filterMinProfit').value;
+      const sort = document.getElementById('filterSort').value;
 
       const params = new URLSearchParams();
       if (brand) params.set('brand', brand);
-      if (minProfit) params.set('minProfit', minProfit);
-      if (sortBy) params.set('sortBy', sortBy);
+      if (source) params.set('source', source);
       if (status) params.set('status', status);
-      params.set('limit', '50');
+      if (damage_risk) params.set('damage_risk', damage_risk);
+      if (min_profit > 0) params.set('min_profit', min_profit);
+      params.set('sort', sort);
+      params.set('limit', '60');
 
       try {
         const res = await fetch('/api/lots?' + params);
         const data = await res.json();
         
-        const tbody = document.getElementById('lotsTable');
+        const grid = document.getElementById('lotsGrid');
         
         if (!data.success || data.data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">No lots found</td></tr>';
+          grid.innerHTML = '<div class="card rounded-xl p-8 text-center text-gray-400 col-span-full">No lots found</div>';
           return;
         }
 
-        tbody.innerHTML = data.data.map(lot => `
-          <tr class="table-row border-b border-white/5 cursor-pointer" onclick="showDetail(${lot.id})">
-            <td class="px-4 py-3">
-              <div class="flex items-center gap-3">
-                ${lot.image_url ? `<img src="${lot.image_url}" class="w-12 h-12 object-cover rounded" onerror="this.style.display='none'">` : ''}
-                <div>
-                  <p class="font-medium">${lot.year || ''} ${lot.brand} ${lot.model}</p>
-                  <p class="text-xs text-gray-400">${lot.damage_type || 'Unknown'} • ${lot.mileage_miles?.toLocaleString() || '?'} mi</p>
+        grid.innerHTML = data.data.map(lot => {
+          const countdown = getCountdown(lot.sale_timestamp);
+          const inWatchlist = watchlist.includes(lot.id);
+          const riskClass = lot.is_avoid ? 'risk-avoid' : (lot.damage_risk === 'low' ? 'risk-low' : 'risk-medium');
+          const statusClass = lot.status === 'live' ? 'badge-live' : (lot.status === 'sold' ? 'badge-sold' : 'badge-upcoming');
+          const sourceClass = `badge-${lot.source}`;
+          
+          return `
+            <div class="card rounded-xl overflow-hidden brand-${lot.brand?.replace(/[- ]/g, '')} brand-glow cursor-pointer" onclick="showDetail(${lot.id})">
+              <div class="h-40 bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a] relative">
+                ${lot.image_url ? `<img src="${lot.image_url}" class="w-full h-full object-cover" onerror="this.style.display='none'">` : ''}
+                <div class="absolute top-2 left-2 flex gap-1">
+                  <span class="text-[10px] px-1.5 py-0.5 rounded ${statusClass}">${lot.status === 'live' ? '🔴 LIVE' : lot.status === 'sold' ? '✅ SOLD' : '🟡 SOON'}</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded ${sourceClass}">${lot.source}</span>
+                </div>
+                <div class="absolute top-2 right-2">
+                  <span class="text-[10px] px-1.5 py-0.5 rounded ${riskClass}">${lot.is_avoid ? '⚠️ AVOID' : lot.damage_risk?.toUpperCase()}</span>
+                </div>
+                <div class="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded text-xs ${countdown.urgent ? 'countdown-urgent' : ''}">
+                  ${countdown.text}
                 </div>
               </div>
-            </td>
-            <td class="px-4 py-3">
-              <span class="text-xs px-2 py-1 rounded bg-white/10">${lot.source}</span>
-            </td>
-            <td class="px-4 py-3 text-right font-medium">${fmt(lot.current_bid_usd)}</td>
-            <td class="px-4 py-3 text-right text-gray-400">${fmt(lot.dubai_market_price_usd)}</td>
-            <td class="px-4 py-3 text-right font-bold ${lot.estimated_profit_usd > 0 ? 'profit-positive' : 'profit-negative'}">
-              ${fmt(lot.estimated_profit_usd)}
-            </td>
-            <td class="px-4 py-3 text-right ${lot.roi_percent > 20 ? 'text-green-400' : lot.roi_percent > 0 ? 'text-yellow-400' : 'text-red-400'}">
-              ${fmtPct(lot.roi_percent)}
-            </td>
-            <td class="px-4 py-3 text-center">
-              ${lot.detail_url ? `<a href="${lot.detail_url}" target="_blank" class="text-blue-400 hover:text-blue-300 text-sm" onclick="event.stopPropagation()">View</a>` : '-'}
-            </td>
-          </tr>
-        `).join('');
+              <div class="p-3">
+                <div class="flex items-start justify-between mb-2">
+                  <div>
+                    <h3 class="font-semibold">${lot.year || ''} ${lot.brand}</h3>
+                    <p class="text-sm text-gray-400 truncate">${lot.model}</p>
+                  </div>
+                  <button onclick="event.stopPropagation(); toggleWatchlistItem(${lot.id})" 
+                          class="text-lg ${inWatchlist ? 'text-yellow-400' : 'text-gray-600'} hover:text-yellow-400">
+                    ${inWatchlist ? '★' : '☆'}
+                  </button>
+                </div>
+                <div class="text-xs text-gray-500 mb-2">
+                  Lot #${lot.lot_number || '-'} • ${lot.damage_type || 'Unknown'} • ${lot.mileage_miles?.toLocaleString() || '?'} mi
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+                  <div><span class="text-gray-500">Bid:</span> <span class="font-medium">${fmt(lot.current_bid_usd)}</span></div>
+                  <div><span class="text-gray-500">Est Final:</span> <span class="font-medium">${fmt(lot.estimated_final_usd)}</span></div>
+                  <div><span class="text-gray-500">Repair:</span> <span>${lot.is_avoid ? '⚠️' : fmt(lot.repair_estimate_usd)}</span></div>
+                  <div><span class="text-gray-500">Ship+Tax:</span> <span>${fmt(lot.ship_to_dubai_usd + lot.uae_import_tax_usd)}</span></div>
+                </div>
+                <div class="pt-2 border-t border-[#2a2a2a] flex items-center justify-between">
+                  <div>
+                    <p class="text-xs text-gray-500">Dubai Sale: ${fmt(lot.dubai_market_price_usd)}</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="font-bold text-lg ${lot.estimated_profit_usd > 0 ? 'profit-positive' : 'profit-negative'}">
+                      ${lot.is_avoid ? 'AVOID' : (lot.estimated_profit_usd > 0 ? '+' : '') + fmt(lot.estimated_profit_usd)}
+                    </p>
+                    <p class="text-xs ${lot.roi_percent > 0 ? 'text-green-400' : 'text-red-400'}">${fmtPct(lot.roi_percent)} ROI</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
       } catch (err) {
         console.error('Lots error:', err);
       }
     }
 
-    // Load opportunities
-    async function loadOpportunities() {
+    // Load history
+    async function loadHistory() {
+      const brand = document.getElementById('historyBrandFilter').value;
+      const params = new URLSearchParams();
+      if (brand) params.set('brand', brand);
+      params.set('limit', '20');
+
       try {
-        const res = await fetch('/api/opportunities?minRoi=15&limit=5');
+        const res = await fetch('/api/history?' + params);
         const data = await res.json();
         
-        const container = document.getElementById('opportunities');
+        const tbody = document.getElementById('historyTable');
         
         if (!data.success || data.data.length === 0) {
-          container.innerHTML = '<p class="text-gray-400 text-sm">No high-ROI opportunities found</p>';
+          tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-gray-500">No history</td></tr>';
           return;
         }
 
-        container.innerHTML = data.data.map(lot => `
-          <div class="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer" onclick="showDetail(${lot.id})">
-            <div>
-              <p class="font-medium text-sm">${lot.year || ''} ${lot.brand} ${lot.model?.substring(0, 20)}</p>
-              <p class="text-xs text-gray-400">${lot.source} • ${fmt(lot.current_bid_usd)}</p>
-            </div>
-            <div class="text-right">
-              <p class="font-bold text-green-400">${fmt(lot.estimated_profit_usd)}</p>
-              <p class="text-xs text-yellow-400">${fmtPct(lot.roi_percent)} ROI</p>
-            </div>
-          </div>
-        `).join('');
-      } catch (err) {
-        console.error('Opportunities error:', err);
-      }
-    }
-
-    // Load sold history
-    async function loadSoldHistory() {
-      try {
-        const res = await fetch('/api/history?limit=10');
-        const data = await res.json();
-        
-        const container = document.getElementById('recentSold');
-        
-        if (!data.success || data.data.length === 0) {
-          container.innerHTML = '<p class="text-gray-400 text-sm">No recent sales data</p>';
-          return;
-        }
-
-        container.innerHTML = data.data.map(sold => `
-          <div class="flex items-center justify-between py-2 border-b border-white/5">
-            <div>
-              <p class="text-sm">${sold.year || ''} ${sold.brand} ${sold.model?.substring(0, 15)}</p>
-              <p class="text-xs text-gray-400">${sold.sale_date || 'Unknown date'}</p>
-            </div>
-            <p class="font-medium">${fmt(sold.final_bid_usd)}</p>
-          </div>
+        tbody.innerHTML = data.data.map(h => `
+          <tr class="border-b border-[#2a2a2a]">
+            <td class="py-2">${h.brand} ${h.model?.substring(0, 15)}</td>
+            <td class="py-2 text-gray-500">${h.year || '-'}</td>
+            <td class="py-2 text-gray-500">${h.damage_type?.substring(0, 10) || '-'}</td>
+            <td class="py-2 text-right font-medium">${fmt(h.final_bid_usd)}</td>
+            <td class="py-2 text-right ${h.would_have_profit > 0 ? 'text-green-400' : 'text-red-400'}">${fmt(h.would_have_profit)}</td>
+          </tr>
         `).join('');
       } catch (err) {
         console.error('History error:', err);
       }
     }
 
-    // Show lot detail
+    // Load best of month
+    async function loadBestMonth() {
+      try {
+        const res = await fetch('/api/best-month');
+        const data = await res.json();
+        
+        const container = document.getElementById('bestMonth');
+        
+        if (!data.success || data.data.length === 0) {
+          container.innerHTML = '<p class="text-gray-500 text-sm">No data</p>';
+          return;
+        }
+
+        container.innerHTML = data.data.map((lot, i) => `
+          <div class="flex items-center justify-between p-2 rounded bg-[#0f0f0f] hover:bg-[#2a2a2a] cursor-pointer" onclick="showDetail(${lot.id})">
+            <div class="flex items-center gap-2">
+              <span class="text-xs w-5 h-5 rounded-full bg-[#2a2a2a] flex items-center justify-center">${i + 1}</span>
+              <div>
+                <p class="text-sm font-medium">${lot.year || ''} ${lot.brand} ${lot.model?.substring(0, 15)}</p>
+                <p class="text-xs text-gray-500">${lot.source}</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="font-bold text-green-400">${fmt(lot.estimated_profit_usd)}</p>
+              <p class="text-xs text-gray-500">${fmtPct(lot.roi_percent)}</p>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Best month error:', err);
+      }
+    }
+
+    // Show detail modal
     async function showDetail(id) {
       document.getElementById('modal').classList.remove('hidden');
       document.getElementById('modal').classList.add('flex');
+      document.getElementById('modalContent').innerHTML = '<p class="text-gray-400 loading">Loading...</p>';
       
       try {
         const res = await fetch(`/api/lots/${id}/breakdown`);
         const data = await res.json();
         
         if (!data.success) {
-          document.getElementById('modalContent').innerHTML = '<p class="text-red-400">Error loading details</p>';
+          document.getElementById('modalContent').innerHTML = '<p class="text-red-400">Error loading</p>';
           return;
         }
 
         const lot = data.data.lot;
         const b = data.data.breakdown;
-
-        document.getElementById('modalTitle').textContent = `${lot.year || ''} ${lot.brand} ${lot.model}`;
-        document.getElementById('modalSubtitle').textContent = `Lot #${lot.lot_number} • ${lot.source}`;
+        const inWatchlist = watchlist.includes(lot.id);
 
         document.getElementById('modalContent').innerHTML = `
+          <div class="flex items-start justify-between mb-6">
+            <div>
+              <h2 class="text-xl font-bold">${lot.year || ''} ${lot.brand} ${lot.model}</h2>
+              <p class="text-gray-400">Lot #${lot.lot_number} • ${lot.source} • ${lot.location_country}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="toggleWatchlistItem(${lot.id}); showDetail(${lot.id});" 
+                      class="px-3 py-1 rounded border ${inWatchlist ? 'border-yellow-400 text-yellow-400' : 'border-gray-600 text-gray-400'}">
+                ${inWatchlist ? '★ In Watchlist' : '☆ Add to Watchlist'}
+              </button>
+              <button onclick="closeModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+          </div>
+          
           <div class="grid md:grid-cols-2 gap-6">
             <div>
-              ${lot.image_url ? `<img src="${lot.image_url}" class="w-full h-48 object-cover rounded-lg mb-4">` : ''}
+              ${lot.image_url ? `<img src="${lot.image_url}" class="w-full h-48 object-cover rounded-lg mb-4">` : '<div class="w-full h-48 bg-[#2a2a2a] rounded-lg mb-4"></div>'}
               <div class="space-y-2 text-sm">
-                <div class="flex justify-between"><span class="text-gray-400">VIN:</span><span>${lot.vin || 'N/A'}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">Damage:</span><span>${lot.damage_type || 'Unknown'}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">Mileage:</span><span>${lot.mileage_miles?.toLocaleString() || '?'} mi</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">Location:</span><span>${lot.location_state}, ${lot.location_country}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">Sale Date:</span><span>${lot.sale_date || 'TBD'}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">VIN:</span><span>${lot.vin || 'N/A'}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Damage:</span><span class="${b.isAvoid ? 'text-red-400' : ''}">${lot.damage_type || 'Unknown'} ${b.isAvoid ? '⚠️ AVOID' : ''}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Risk Level:</span><span>${lot.damage_risk?.toUpperCase()}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Mileage:</span><span>${lot.mileage_miles?.toLocaleString() || '?'} mi</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Condition:</span><span>${lot.condition || '-'}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Seller:</span><span>${lot.seller_type || '-'}</span></div>
               </div>
+              ${lot.detail_url ? `<a href="${lot.detail_url}" target="_blank" class="mt-4 block w-full py-2 bg-blue-600 hover:bg-blue-700 rounded text-center font-medium transition">View on ${lot.source}</a>` : ''}
             </div>
+            
             <div>
-              <h4 class="font-semibold mb-3">Cost Breakdown</h4>
-              <div class="space-y-2 text-sm">
-                <div class="flex justify-between"><span class="text-gray-400">Current Bid:</span><span>${fmt(b.bidPrice)}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">+ Buyer Fees (22%):</span><span>${fmt(b.buyerFee)}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">+ Transport to Port:</span><span>${fmt(b.inlandTransport)}</span></div>
-                <div class="flex justify-between border-t border-white/10 pt-2"><span class="text-gray-400">Auction Total:</span><span class="font-medium">${fmt(b.totalAuctionCost)}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">+ Repair Estimate:</span><span>${fmt(b.repairCost)}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">+ Shipping to Dubai:</span><span>${fmt(b.shippingCost)}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">+ Insurance:</span><span>${fmt(b.insuranceCost)}</span></div>
-                <div class="flex justify-between border-t border-white/10 pt-2"><span class="text-gray-400">CIF Value:</span><span class="font-medium">${fmt(b.cifValue)}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">+ Customs (5%):</span><span>${fmt(b.customsDuty)}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">+ VAT (5%):</span><span>${fmt(b.vat)}</span></div>
-                <div class="flex justify-between"><span class="text-gray-400">+ RTA/Insurance/Ads:</span><span>${fmt(b.dubaiFixedCosts)}</span></div>
-                <div class="flex justify-between border-t border-white/10 pt-2 text-base"><span class="font-medium">TOTAL COST:</span><span class="font-bold">${fmt(b.totalCost)}</span></div>
+              <h4 class="font-semibold mb-3">Full Cost Breakdown</h4>
+              <div class="space-y-1.5 text-sm">
+                <div class="flex justify-between"><span class="text-gray-500">Current Bid:</span><span>${fmt(b.currentBid)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Estimated Final:</span><span>${fmt(b.estimatedFinal)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">+ Buyer Fees (22%):</span><span>${fmt(b.buyerFee)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">+ Transport to Port:</span><span>${fmt(b.inlandTransport)}</span></div>
+                <div class="flex justify-between pt-1 border-t border-[#2a2a2a]"><span class="text-gray-400">Auction Total:</span><span class="font-medium">${fmt(b.totalAuctionCost)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">+ Repair Estimate:</span><span class="${b.isAvoid ? 'text-red-400' : ''}">${b.isAvoid ? '⚠️ $80,000+' : fmt(b.repairCost)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">+ Shipping to Dubai:</span><span>${fmt(b.shippingCost)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">+ Marine Insurance:</span><span>${fmt(b.insuranceCost)}</span></div>
+                <div class="flex justify-between pt-1 border-t border-[#2a2a2a]"><span class="text-gray-400">CIF Value:</span><span class="font-medium">${fmt(b.cifValue)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">+ Customs (5%):</span><span>${fmt(b.customsDuty)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">+ VAT (5%):</span><span>${fmt(b.vat)}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">+ RTA/Insurance/Ads:</span><span>${fmt(b.dubaiFixedCosts)}</span></div>
+                <div class="flex justify-between pt-2 border-t border-[#2a2a2a] text-base"><span class="font-medium">TOTAL COST:</span><span class="font-bold">${fmt(b.totalCost)}</span></div>
               </div>
               
-              <div class="mt-6 p-4 rounded-lg ${b.profit > 0 ? 'bg-green-500/20' : 'bg-red-500/20'}">
+              <div class="mt-4 p-4 rounded-lg ${b.profit > 0 && !b.isAvoid ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}">
                 <div class="flex justify-between items-center">
                   <div>
-                    <p class="text-gray-400 text-xs">Dubai Market Price</p>
+                    <p class="text-gray-500 text-xs">Dubai Market Price</p>
                     <p class="text-lg font-bold">${fmt(b.dubaiMarketPrice)}</p>
+                    <p class="text-xs text-gray-500">${fmtAED(Math.round(b.dubaiMarketPrice * 3.67))}</p>
                   </div>
                   <div class="text-right">
-                    <p class="text-gray-400 text-xs">Estimated Profit</p>
-                    <p class="text-2xl font-bold ${b.profit > 0 ? 'text-green-400' : 'text-red-400'}">${fmt(b.profit)}</p>
-                    <p class="text-sm ${b.roi > 0 ? 'text-green-400' : 'text-red-400'}">${fmtPct(b.roi)} ROI</p>
+                    <p class="text-gray-500 text-xs">Net Profit</p>
+                    <p class="text-2xl font-bold ${b.profit > 0 && !b.isAvoid ? 'text-green-400' : 'text-red-400'}">
+                      ${b.isAvoid ? '⚠️ AVOID' : (b.profit > 0 ? '+' : '') + fmt(b.profit)}
+                    </p>
+                    <p class="text-sm text-gray-400">${fmtAED(b.profitAED)} • ${fmtPct(b.roi)} ROI</p>
                   </div>
                 </div>
               </div>
-              
-              ${lot.detail_url ? `<a href="${lot.detail_url}" target="_blank" class="mt-4 block w-full py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-center font-medium transition">View on ${lot.source}</a>` : ''}
             </div>
           </div>
         `;
       } catch (err) {
         console.error('Detail error:', err);
-        document.getElementById('modalContent').innerHTML = '<p class="text-red-400">Error loading details</p>';
+        document.getElementById('modalContent').innerHTML = '<p class="text-red-400">Error loading</p>';
       }
     }
 
@@ -463,41 +634,106 @@
       document.getElementById('modal').classList.remove('flex');
     }
 
-    // Trigger scrape
-    async function triggerScrape() {
-      if (!confirm('Start scraping all auction sites? This may take several minutes.')) return;
+    // Watchlist functions
+    function toggleWatchlist() {
+      document.getElementById('watchlistSidebar').classList.toggle('hidden');
+      updateWatchlistUI();
+    }
+
+    function toggleWatchlistItem(id) {
+      const idx = watchlist.indexOf(id);
+      if (idx > -1) {
+        watchlist.splice(idx, 1);
+      } else {
+        watchlist.push(id);
+      }
+      localStorage.setItem('watchlist', JSON.stringify(watchlist));
+      document.getElementById('watchlistCount').textContent = watchlist.length;
+      updateWatchlistUI();
+    }
+
+    async function updateWatchlistUI() {
+      document.getElementById('watchlistCount').textContent = watchlist.length;
       
+      if (watchlist.length === 0) {
+        document.getElementById('watchlistItems').innerHTML = '<p class="text-gray-500 text-sm">No items</p>';
+        document.getElementById('watchlistTotalProfit').textContent = '$0';
+        return;
+      }
+
       try {
-        const res = await fetch('/api/scrape', { method: 'POST' });
+        const res = await fetch(`/api/watchlist/ids/${watchlist.join(',')}`);
         const data = await res.json();
-        alert(data.message || 'Scrape started!');
+        
+        if (!data.success) return;
+
+        const totalProfit = data.data.reduce((sum, lot) => sum + (lot.estimated_profit_usd > 0 ? lot.estimated_profit_usd : 0), 0);
+        document.getElementById('watchlistTotalProfit').textContent = fmt(totalProfit);
+
+        document.getElementById('watchlistItems').innerHTML = data.data.map(lot => `
+          <div class="p-2 rounded bg-[#0f0f0f] cursor-pointer hover:bg-[#2a2a2a]" onclick="showDetail(${lot.id})">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-sm font-medium">${lot.year || ''} ${lot.brand}</p>
+                <p class="text-xs text-gray-500">${lot.model?.substring(0, 20)}</p>
+                <p class="text-xs text-gray-500">${fmt(lot.current_bid_usd)} bid</p>
+              </div>
+              <div class="text-right">
+                <p class="font-bold ${lot.estimated_profit_usd > 0 ? 'text-green-400' : 'text-red-400'}">${fmt(lot.estimated_profit_usd)}</p>
+                <button onclick="event.stopPropagation(); toggleWatchlistItem(${lot.id}); updateWatchlistUI();" 
+                        class="text-xs text-gray-500 hover:text-red-400 mt-1">Remove</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
       } catch (err) {
-        alert('Error starting scrape: ' + err.message);
+        console.error('Watchlist error:', err);
       }
     }
 
-    // Apply filters
+    // Trigger scrape
+    async function triggerScrape() {
+      if (!confirm('Start scraping all auction sites? This may take 5-10 minutes.')) return;
+      
+      try {
+        const res = await fetch('/api/refresh', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || 'Scrape started!');
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
     function applyFilters() {
       loadLots();
     }
 
-    // Refresh all data
     function refreshData() {
       loadStats();
       loadLots();
-      loadOpportunities();
-      loadSoldHistory();
+      loadHistory();
+      loadBestMonth();
+      updateWatchlistUI();
     }
 
-    // Close modal on click outside
+    // Event listeners
     document.getElementById('modal').addEventListener('click', (e) => {
       if (e.target.id === 'modal') closeModal();
     });
 
+    // Update countdowns every minute
+    setInterval(() => {
+      document.querySelectorAll('[data-timestamp]').forEach(el => {
+        const countdown = getCountdown(parseInt(el.dataset.timestamp));
+        el.textContent = countdown.text;
+        if (countdown.urgent) el.classList.add('countdown-urgent');
+      });
+    }, 60000);
+
     // Initial load
     refreshData();
 
-    // Auto-refresh every 5 minutes
+    // Auto-refresh every 5 min
     setInterval(refreshData, 300000);
   </script>
 </body>

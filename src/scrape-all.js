@@ -1,5 +1,5 @@
-const { statements } = require('./database');
-const { calculateProfit, getRepairEstimate, getShippingCost } = require('./utils/calculator');
+const { db, statements } = require('./database');
+const { calculateProfit, getRepairEstimate, getShippingCost, getDamageRisk, estimateFinalBid } = require('./utils/calculator');
 
 // Import all scrapers
 const CarfastScraper = require('./scrapers/carfast');
@@ -40,16 +40,16 @@ class ScrapeManager {
    */
   getDefaultPrice(brand) {
     const defaults = {
-      'Ferrari': 250000,
-      'Lamborghini': 280000,
-      'McLaren': 220000,
-      'Porsche': 120000,
-      'Bentley': 180000,
-      'Rolls-Royce': 350000,
-      'Aston Martin': 150000,
-      'Mercedes-AMG': 140000
+      'Ferrari': 280000,
+      'Lamborghini': 320000,
+      'McLaren': 250000,
+      'Porsche': 140000,
+      'Bentley': 200000,
+      'Rolls-Royce': 400000,
+      'Aston Martin': 180000,
+      'Mercedes-AMG': 160000
     };
-    return defaults[brand] || 150000;
+    return defaults[brand] || 180000;
   }
 
   /**
@@ -60,11 +60,29 @@ class ScrapeManager {
       // Get repair estimate
       lot.repair_estimate_usd = lot.repair_estimate_usd || getRepairEstimate(lot.damage_type);
       
+      // Get damage risk level
+      lot.damage_risk = getDamageRisk(lot.damage_type);
+      
+      // Check if should avoid
+      const isAvoid = lot.repair_estimate_usd >= 999999;
+      if (isAvoid) {
+        lot.repair_estimate_usd = 80000; // Mark as $80k+ for display
+      }
+      
       // Get shipping cost
       lot.ship_to_dubai_usd = lot.ship_to_dubai_usd || getShippingCost(lot.location_country);
       
-      // Estimate final price if only current bid available
-      lot.estimated_final_usd = lot.estimated_final_usd || lot.current_bid_usd * 1.15;
+      // Estimate final price based on days to sale
+      lot.estimated_final_usd = lot.estimated_final_usd || estimateFinalBid(lot.current_bid_usd, lot.sale_date, lot.status);
+      
+      // Get sale timestamp
+      let saleTimestamp = null;
+      if (lot.sale_date) {
+        const parsed = new Date(lot.sale_date);
+        if (!isNaN(parsed.getTime())) {
+          saleTimestamp = Math.floor(parsed.getTime() / 1000);
+        }
+      }
       
       // Get Dubai market price
       lot.dubai_market_price_usd = this.getDubaiPrice(lot.brand, lot.model, lot.year);
@@ -72,8 +90,8 @@ class ScrapeManager {
       // Calculate profit
       const calc = calculateProfit(lot, lot.dubai_market_price_usd);
       lot.uae_import_tax_usd = calc.totalImportTax;
-      lot.estimated_profit_usd = calc.profit;
-      lot.roi_percent = calc.roi;
+      lot.estimated_profit_usd = isAvoid ? -999999 : calc.profit;
+      lot.roi_percent = isAvoid ? 0 : calc.roi;
 
       // Save to database
       statements.upsertLot.run({
@@ -88,10 +106,12 @@ class ScrapeManager {
         estimated_final_usd: lot.estimated_final_usd,
         buy_now_usd: lot.buy_now_usd || null,
         damage_type: lot.damage_type,
+        damage_risk: lot.damage_risk,
         mileage_miles: lot.mileage_miles,
         condition: lot.condition,
         status: lot.status || 'live',
         sale_date: lot.sale_date,
+        sale_timestamp: saleTimestamp,
         location_state: lot.location_state,
         location_country: lot.location_country,
         seller_type: lot.seller_type,
@@ -101,6 +121,7 @@ class ScrapeManager {
         dubai_market_price_usd: lot.dubai_market_price_usd,
         estimated_profit_usd: lot.estimated_profit_usd,
         roi_percent: lot.roi_percent,
+        is_avoid: isAvoid ? 1 : 0,
         image_url: lot.image_url,
         detail_url: lot.detail_url
       });
@@ -113,10 +134,21 @@ class ScrapeManager {
   }
 
   /**
-   * Save sold history
+   * Save sold history with would-have profit calculation
    */
   saveSoldHistory(sold) {
     try {
+      // Calculate what profit would have been
+      const dubaiPrice = this.getDubaiPrice(sold.brand, sold.model, sold.year);
+      const mockLot = {
+        current_bid_usd: sold.final_bid_usd,
+        estimated_final_usd: sold.final_bid_usd,
+        damage_type: sold.damage_type,
+        location_country: 'USA',
+        status: 'sold'
+      };
+      const calc = calculateProfit(mockLot, dubaiPrice);
+
       statements.upsertSold.run({
         source: sold.source,
         lot_number: sold.lot_number,
@@ -127,6 +159,7 @@ class ScrapeManager {
         sale_date: sold.sale_date,
         damage_type: sold.damage_type,
         mileage_miles: sold.mileage_miles,
+        would_have_profit: calc.isAvoid ? null : calc.profit,
         image_url: sold.image_url
       });
       return true;
